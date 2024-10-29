@@ -1,22 +1,27 @@
 import tkinter as tk
 from tkinter import messagebox
 
-#初期値
-list_items=[
-    ["コーラ",160],
-    ["オレンジジュース",160],
-    ["ファンタグレープ",160],
-    ["天然水",120],
-    ["いろはす",150],
-    ["りんごジュース",150],
-    ["オレンジジュース",150],
-    ["ぶどうジュース",150],
-    ["コーヒー",150],
-    ["いろはすみかん",150],
-    ["抹茶ラテ",160],
-    
+# 初期値
+# 商品リスト
+list_items = [
+    ["コーラ", 160],
+    ["ファンタオレンジ", 160],
+    ["ファンタグレープ", 160],
+    ["天然水", 120],
+    ["いろはす", 150],
+    ["りんごジュース", 150],
+    ["オレンジジュース", 150],
+    ["ぶどうジュース", 150],
+    ["コーヒー", 150],
+    ["いろはすみかん", 150],
+    ["抹茶ラテ", 160],
 ]
-stock = [10 for _ in range(len(list_items))]  # 各商品の在庫数 (初期値は10)
+stock = [10 for _ in range(len(list_items))]  # 各商品の在庫数 (初期値---10本)
+deposited_money = 0  # 投入金額を初期化
+selected_items = {}  # 選択中の商品を初期化
+purchased_items_window = None  # 購入商品ウィンドウを初期化
+total_sales = 0 #売上金額を格納する変数
+total_sales_label = None
 
 def deposit():
     # 入金ダイアログ
@@ -106,7 +111,7 @@ def show_refund_dialog(change):
     button_close.pack(pady=10)
 
 def buy():
-    global deposited_money
+    global deposited_money, purchased_items_window, total_sales
     total_price = 0
     # 在庫不足フラグ
     out_of_stock = False
@@ -123,7 +128,11 @@ def buy():
                 total_price += item[1] * quantity
                 break
 
-    if out_of_stock:
+    # **商品が選択されているかチェック**
+    if not selected_items:
+        # 商品が選択されていない場合
+        messagebox.showerror("エラー", "商品を選択してください。")
+    elif out_of_stock:
         # 在庫が足りない商品がある場合
         messagebox.showerror("エラー", out_of_stock_message)
     elif deposited_money < total_price:
@@ -134,27 +143,40 @@ def buy():
         deposited_money -= total_price
         update_money_display(0)
 
+        # 売上金額を更新
+        total_sales += total_price  # 売上金額を加算
+        update_total_sales()  # 売上金額表示を更新
+
         # 在庫を減らす
         for item_name, quantity in selected_items.items():
             for i, item in enumerate(list_items):
                 if item[0] == item_name:
-                    stock[i] -= quantity  # 在庫を減らす
+                    if stock[i] >= quantity:  # 在庫数が十分にある場合のみ減らす
+                        stock[i] -= quantity
                     break
+
+        # **購入された商品の情報をコピーしておく**
+        purchased_items = selected_items.copy()
 
         # 商品選択をリセット
         cancel_items()
 
-        #商品ステータスを更新
+        # 商品ステータスを更新
         update_item_status()
 
         # 購入商品ウィンドウを更新
-        if purchased_items_window is not None:  # ウィンドウが既に存在する場合は削除
-            for widget in purchased_items_window.winfo_children():
-                widget.destroy()  # ウィンドウ内のウィジェットをすべて削除
+        if purchased_items_window is not None:
+            purchased_items_window.destroy() # ウィンドウを削除
 
-        show_purchased_items(selected_items, total_price)  # 購入商品ウィンドウを再表示
+        # **コピーした購入商品を表示**
+        show_purchased_items(purchased_items, total_price)
 
-
+def update_total_sales():
+    global total_sales_label
+    # 売上金額表示を更新
+    # total_sales_label が存在する場合のみ更新
+    if total_sales_label is not None:  
+        total_sales_label.config(text=f"現在の売上金額: {total_sales}円")
 
 def update_item_status():
     # 商品ステータスを更新
@@ -168,7 +190,8 @@ def update_item_status():
 
 def show_purchased_items(purchased_items, total_price):
     # 購入された商品を表示するウィンドウ
-    global purchased_items_window  # グローバル変数として宣言
+    global purchased_items_window
+
     purchased_items_window = tk.Toplevel(root)
     purchased_items_window.title("購入商品")
     purchased_items_window.geometry("300x400")
@@ -187,14 +210,14 @@ def show_purchased_items(purchased_items, total_price):
     button_close = tk.Button(purchased_items_window, text="閉じる", command=purchased_items_window.destroy)
     button_close.pack(pady=10)
 
-#ウィンドウの作成
+# ウィンドウの作成
 root = tk.Tk()
 root.geometry("900x1000")
 root.title("自動販売機")
 root.resizable(width=False, height=False)
 
-#メインキャンバス
-canvas_main=tk.Canvas(root, width=900, height=1000)
+# メインキャンバス
+canvas_main = tk.Canvas(root, width=900, height=1000)
 canvas_main.place(x=0, y=0)
 
 # 選択中の商品の表示
@@ -231,14 +254,14 @@ def update_select_items(item_name, quantity_change):
     # 選択中の商品を表示
     y = 10
     for item_name, quantity in selected_items.items():
-        canvas_select_items.create_text(20, y, text=f"{item_name} x {quantity}", anchor=tk.W, font=("Arial", 14))  # フォントサイズを14に変更、x座標を20に変更
+        canvas_select_items.create_text(20, y, text=f"{item_name} x {quantity}", anchor=tk.W, font=("Arial", 14))
         y += 20
 
     # スクロール範囲を更新
     canvas_select_items.config(scrollregion=canvas_select_items.bbox("all"))
 
-#商品の表示
-frame_items=tk.Frame(canvas_main, width=600, height=300, relief=tk.GROOVE, bd=4)
+# 商品の表示
+frame_items = tk.Frame(canvas_main, width=600, height=300, relief=tk.GROOVE, bd=4)
 frame_items.place(x=50, y=50)
 
 # **ここから商品ブロックの作成と配置**
@@ -268,7 +291,7 @@ for i, item in enumerate(list_items):
 
     # 数量増減ボタン
     button_frame = tk.Frame(item_frame)  # ボタンを格納するフレームを作成
-    button_frame.grid(row=4, column=0) # フレームを拡張して中央に配置 
+    button_frame.grid(row=4, column=0) # フレームを拡張して中央に配置
 
     button_minus = tk.Button(button_frame, text="-", command=lambda name=item[0]: update_select_items(name, -1))
     button_minus.pack(side=tk.LEFT)
@@ -276,26 +299,26 @@ for i, item in enumerate(list_items):
     button_plus = tk.Button(button_frame, text="+", command=lambda name=item[0]: update_select_items(name, 1))
     button_plus.pack(side=tk.RIGHT)
 
-#投入金額の表示
-frame_money=tk.Frame(canvas_main, width=200, height=100, relief=tk.GROOVE, bd=4)
+# 投入金額の表示
+frame_money = tk.Frame(canvas_main, width=200, height=100, relief=tk.GROOVE, bd=4)
 frame_money.place(x=50, y=500)
-canvas_money=tk.Canvas(frame_money, width=200, height=100)
+canvas_money = tk.Canvas(frame_money, width=200, height=100)
 canvas_money.pack()
 
-#入金ボタン
+# 入金ボタン
 deposited_money = 0  # 投入金額を初期化
 btn_deposit=tk.Button(canvas_main, text="入金", width=10, height=2, command=deposit)
 btn_deposit.place(x=280, y=530)
 
-#返金ボタン
+# 返金ボタン
 btn_refund = tk.Button(canvas_main, text="返金", width=10, height=2, command=refund)  # 返金処理を追加
 btn_refund.place(x=380, y=530)
 
-#購入ボタン
+# 購入ボタン
 btn_buy = tk.Button(canvas_main, text="購入", width=10, height=5, command=buy)  # コマンドを設定
 btn_buy.place(x=750, y=800)
 
-#商品取り消しボタンが押された時の処理
+# 商品取り消しボタンが押された時の処理
 def cancel_items():
     global selected_items
     selected_items = {}  # 選択中の商品をクリア
@@ -306,71 +329,14 @@ def cancel_items():
 btn_items_cancel = tk.Button(canvas_main, text="商品取消し", width=8, height=2, command=cancel_items)  # コマンドを設定
 btn_items_cancel.place(x=660, y=650) 
 
-def replenish_item(j, stock_window):  # stock_window を引数に追加
-    # i番目の商品の補充ダイアログを表示
-    def replenish_dialog():
-        # ダイアログウィンドウ
-        dialog = tk.Toplevel(root)
-        dialog.title("補充")
-        dialog.geometry("300x200")
-        dialog.resizable(width=False, height=False)
-
-        # 数量入力
-        label_amount = tk.Label(dialog, text="補充する数量を入力してください")
-        label_amount.pack(pady=20)
-        entry_amount = tk.Entry(dialog)
-        entry_amount.pack()
-
-        # 確定ボタン
-        def confirm_replenish():
-            try:
-                amount = int(entry_amount.get())  # 入力値を整数に変換
-                if amount > 0:
-                    stock[j] += amount  # 在庫数を増やす
-                    update_item_status()  # 商品ステータスを更新
-
-                    # 在庫管理ウィンドウを更新
-                    for widget in stock_window.winfo_children():
-                        widget.destroy()  # ウィンドウ内のウィジェットをすべて削除
-
-                    # 在庫状況を表示するフレームを作成
-                    stock_frame = tk.Frame(stock_window)
-                    stock_frame.pack(fill=tk.BOTH, expand=True)
-
-                    # 各商品の在庫状況を表示
-                    for i, item in enumerate(list_items):
-                        # 商品名と在庫数を表示するフレーム
-                        item_frame = tk.Frame(stock_frame)
-                        item_frame.pack(fill=tk.X, padx=10, pady=5, anchor=tk.CENTER)  # 中央揃え
-
-                        # 商品名と在庫数のラベル
-                        label_stock = tk.Label(item_frame, text=f"{item[0]}: {stock[i]}本", width=20)
-                        label_stock.pack(side=tk.LEFT)
-
-                        # 補充ボタン
-                        replenish_button = tk.Button(item_frame, text="補充", command=lambda index=i: replenish_item(index, stock_window))  # stock_window を渡す
-                        replenish_button.pack(side=tk.LEFT)
-
-                    # 閉じるボタンを作成
-                    close_button = tk.Button(stock_window, text="閉じる", command=stock_window.destroy)
-                    close_button.pack(pady=10)
-
-                    dialog.destroy()  # ダイアログを閉じる
-                else:
-                    messagebox.showerror("エラー", "有効な数量を入力してください")
-            except ValueError:
-                messagebox.showerror("エラー", "数値を入力してください")
-
-        button_confirm = tk.Button(dialog, text="確定", command=confirm_replenish)
-        button_confirm.pack(pady=20)
-
-    replenish_dialog()
-
+#------------------
 def show_stock_window():
+    global stock_window, total_sales_label
+
     # 在庫管理ウィンドウを作成
     stock_window = tk.Toplevel(root)
     stock_window.title("在庫管理")
-    stock_window.geometry("500x600")  # ウィンドウサイズを少し広げる
+    stock_window.geometry("500x700")  # ウィンドウサイズをさらに広げる
 
     # 在庫状況を表示するフレームを作成
     stock_frame = tk.Frame(stock_window)
@@ -378,6 +344,17 @@ def show_stock_window():
 
     # チェックボックスの値を格納するリスト
     checkbox_vars = [tk.BooleanVar() for _ in range(len(list_items))]
+
+    # 在庫数のラベルを保存するリスト
+    stock_labels = []
+
+    # 売上金額表示用のフレーム
+    sales_frame = tk.Frame(stock_window)
+    sales_frame.pack(pady=10)
+
+    # 売上金額表示用のラベル
+    total_sales_label = tk.Label(sales_frame, text=f"現在の売上金額: {total_sales}円", font=("Arial", 16))
+    total_sales_label.pack()
 
     # 各商品の在庫状況を表示
     for i, item in enumerate(list_items):
@@ -388,9 +365,10 @@ def show_stock_window():
         # 商品名と在庫数のラベル
         label_stock = tk.Label(item_frame, text=f"{item[0]}: {stock[i]}本", width=20)
         label_stock.pack(side=tk.LEFT)
+        stock_labels.append(label_stock)
 
         # 補充ボタン
-        replenish_button = tk.Button(item_frame, text="補充", command=lambda index=i: replenish_item(index, stock_window))
+        replenish_button = tk.Button(item_frame, text="補充", command=lambda index=i: replenish_item(index))
         replenish_button.pack(side=tk.LEFT, padx=5)
 
         # チェックボックス
@@ -407,34 +385,65 @@ def show_stock_window():
     entry_bulk = tk.Entry(bulk_frame)
     entry_bulk.pack(side=tk.LEFT)
 
-# 一括補充ボタン
-    def bulk_replenish(stock_window): # 在庫管理ウィンドウを引数で受け取る
+    # 一括補充ボタンを作成する前に bulk_replenish 関数を定義
+    def bulk_replenish():
         try:
             amount = int(entry_bulk.get())  # 入力値を整数に変換
             if amount > 0:
                 for i, var in enumerate(checkbox_vars):
                     if var.get():  # チェックボックスがオンになっている場合
                         stock[i] += amount  # 在庫数を増やす
+                        # 在庫数ラベルを更新
+                        stock_labels[i].config(text=f"{list_items[i][0]}: {stock[i]}本")
                 update_item_status()  # 商品ステータスを更新
-
-                # 在庫管理ウィンドウを更新
-                for widget in stock_window.winfo_children():
-                    widget.destroy()  # ウィンドウ内のウィジェットをすべて削除
-
-                show_stock_window()  # 在庫管理ウィンドウを再表示
-
             else:
                 messagebox.showerror("エラー", "有効な数量を入力してください")
         except ValueError:
             messagebox.showerror("エラー", "数値を入力してください")
 
     # 一括補充ボタン
-    bulk_button = tk.Button(stock_window, text="一括補充", command=lambda: bulk_replenish(stock_window))  # lambda式でstock_windowを渡す
+    bulk_button = tk.Button(stock_window, text="一括補充", command=bulk_replenish)
     bulk_button.pack(pady=10)
 
     # 閉じるボタンを作成
     close_button = tk.Button(stock_window, text="閉じる", command=stock_window.destroy)
     close_button.pack(pady=10)
+
+    # replenish_item 関数を定義
+    def replenish_item(index):
+        def replenish_dialog():
+            # ダイアログウィンドウ
+            dialog = tk.Toplevel(root)
+            dialog.title("補充")
+            dialog.geometry("300x200")
+            dialog.resizable(width=False, height=False)
+
+            # 数量入力
+            label_amount = tk.Label(dialog, text="補充する数量を入力してください")
+            label_amount.pack(pady=20)
+            entry_amount = tk.Entry(dialog)
+            entry_amount.pack()
+
+            # 確定ボタン
+            def confirm_replenish():
+                try:
+                    amount = int(entry_amount.get())  # 入力値を整数に変換
+                    if amount > 0:
+                        stock[index] += amount  # 在庫数を増やす
+                        update_item_status()  # 商品ステータスを更新
+                        # 在庫数ラベルを更新
+                        stock_labels[index].config(text=f"{list_items[index][0]}: {stock[index]}本")
+                        dialog.destroy()  # ダイアログを閉じる
+                    else:
+                        messagebox.showerror("エラー", "有効な数量を入力してください")
+                except ValueError:
+                    messagebox.showerror("エラー", "数値を入力してください")
+
+            button_confirm = tk.Button(dialog, text="確定", command=confirm_replenish)
+            button_confirm.pack(pady=20)
+
+        replenish_dialog()
+
 
 #管理ボタン
 btn_settings = tk.Button(canvas_main, text="管理", width=4, height=1, command=show_stock_window)  # コマンドを設定
@@ -444,4 +453,3 @@ btn_settings.place(x=850, y=10)
 update_money_display(0)  # 0円を表示
 
 root.mainloop()
-
